@@ -1,0 +1,27 @@
+function spectrogram=MkTimeIntegrationSpectrogram(Ecog)
+% This function integers over time the spectrograms of each trial of each 
+% class 
+% 
+% INPUT
+% Ecog:         an Ecog Structure
+%v
+% OUTPUT
+% spectrogram:  a structure containing each classes. In each class, there
+%               is an array ([nFz nChan nTrial]) of the spectrogram 
+%               integrated over time
+%
+% EXAMPLE:      spectrogram=MkSpectrogramTimeIntegration(Ecog)
+
+
+
+for j=1:Ecog.nClass
+    Class=['Class' num2str(j)];
+    for i=1:Ecog.(Class).nTrial
+        Trial=['Trial' num2str(i)];
+        spectrogram.(Class).trials(:,:,i)=squeeze(mean(Ecog.(Class).(Trial).spectrogram.spectrogram,1));
+        spectrogram.(Class).badChannels=Ecog.(Class).(Trial).badChannels;
+        spectrogram.(Class).selectedChannels=setdiff(Ecog.(Class).(Trial).selectedChannels,Ecog.(Class).(Trial).badChannels);
+        spectrogram.(Class).centerFrequency=Ecog.(Class).(Trial).spectrogram.centerFrequency;
+        spectrogram.(Class).params=Ecog.(Class).(Trial).spectrogram.params;
+    end  
+end

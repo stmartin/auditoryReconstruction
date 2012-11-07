@@ -1,0 +1,111 @@
+%% CLEAN AND CHANGE other ecog field such as sampDur, triggerTS etc
+
+clear all
+saveDir = '/home/knight/smartin/subjData/';
+cd([saveDir 'subject_33'])
+
+disp(['Current directory is: ' pwd]); 
+flist=dir('ecogB*.mat');
+isOpen = matlabpool('size') > 0; % WHAT'S THIS
+if ~isOpen
+    matlabpool open 8
+end
+%afs=24414.0625;
+% d1 computes analytic amplitude, d2 computes multi-taper
+d1=1;
+d2=0;
+sdo=zeros(1,12);
+sdo([3 14]) = 1;
+disp(['Processing ' num2str(length(flist)) ' files']);
+
+for k=1:length(flist)
+    %for k=[1:4]
+    load(flist(k).name)
+    disp(['Processing file ' num2str(k) ': ' flist(k).name]);
+    ecog2 = rmfield(ecog, 'data');
+    ecog2.dataFs = 100;
+    ecog2.speechFs = 100;
+
+
+    %% Compute analytic amplitude using Hilbert Transform
+    % ecog.data{1} : time X frequency X channel  (analytic amplitude)  (100 Hz)
+    if d1
+        disp('Computing Analytic Amplitude...');
+%        lowf= [1 5 9  16 31 51 71 91  111 131 150];
+%        highf=[4 8 15 30 50 70 90 110 131 150 200];
+        lowf = [70];
+        highf = [170];
+        tt = 0:1 / ecog.dataFs:(size(ecog.data, 2) / ecog.dataFs - 1 / ecog.dataFs);
+        tt100 = 0:1 / ecog2.dataFs:(size(ecog.data, 2) / ecog.dataFs - 1 / ecog2.dataFs);
+
+        clear filtdata ; % what's this?
+        tmpdata = double(ecog.data');
+        
+        for ff = 1:length(lowf)
+            disp(['Frequency: ' num2str(lowf(ff))]);
+            lf = lowf(ff);
+            hf=highf(ff);
+            dataFs = ecog.dataFs;
+            clear filtdatatmp
+            
+            for c = 1:size(ecog.data, 1)
+                amp = abs(hilbert(eegfilt(squeeze(tmpdata(:, c))', ecog.dataFs, lf, hf)));
+                tmp = timeseries(amp, tt);
+                tmp = resample(tmp, tt100);
+                filtdatatmp(c,:)=squeeze(tmp.Data);
+            end
+            filtdata(:, :, ff) = filtdatatmp;
+        end
+        clear tmpdata;
+        ecog2.data = squeeze(permute(filtdata, [2 3 1]))';
+        clear filtdata;
+        ecog2.f=[lowf; highf]';
+    end
+    
+    %% compute multi taper
+    % ecog.data{2} : time X frequency X channel  (multi-taper power)  (100 Hz)
+    if d2
+        disp('Computing Multi Taper...');
+
+        Ktapers = 4; 
+        NW = (Ktapers + 1) / 2;
+        cparams.tapers = [NW Ktapers];
+        cparams.pad = 0;
+        cparams.Fs = ecog.dataFs;
+        cparams.fpass = [0 200];
+        movingwin = [0.09 0.01];
+        clear filtdata;
+        tmpdata = ecog.data;
+        [S t f] = mtspecgramc(squeeze(tmpdata(:, 4)), movingwin, cparams);  % to get f and t outside of parfor
+        
+        parfor c = 1:size(ecog.data,2)
+            [S t f] = mtspecgramc(squeeze(tmpdata(:, c)), movingwin, cparams);
+            filtdata(c, :, :) = S;
+        end
+        clear tmpdata;
+        filtdata = permute(filtdata, [2 3 1]);
+        tt100 = 0:1 / ecog2.dataFs:(size(ecog.data, 1) / ecog.dataFs - 1 / ecog2.dataFs);
+        fts = timeseries(filtdata, t);
+        clear filtdata;
+        fts = resample(fts, tt100);
+
+        ecog2.data{2} = squeeze(fts.Data);
+        clear fts;
+        ecog2.f{2} = f;
+    end
+
+    if isfield(ecog, 'audio')    
+        ecog2.audio = single(ecog.audio);
+        size(ecog.audio)
+        ecog2.audioFs = ecog.audioFs;
+    end
+    ecog = ecog2;
+    
+    for d=1:1
+        ecog.data = single(ecog.data);
+    end
+
+    disp(['Savefile is ' 'highGamma' flist(k).name]);
+    save(['highGamma_' flist(k).name],'ecog');
+end
+

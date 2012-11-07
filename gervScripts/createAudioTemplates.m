@@ -1,0 +1,63 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This script creates audio templates from a file that contains ecog
+% activity and audio activity
+%
+%
+%   OUTPUTS: 
+%       sentTemplates:      A cell structure with N items representing the
+%                           N sentences we're classifying.  In each
+%                           structure is a PxQ matrix of P timepoints by Q
+%                           frequency bands.  You can then compare this
+%                           matrix to the Q frequency bands of each
+%                           reconstruction.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear all;
+rootDir = '/home/knight/holdgraf/data/gerwinSchalk/subjData/subject_31/';
+
+% Load file with audio
+audFile = 'a2GVPhrases_S31_B4_merged.mat';
+saveFile = 'a2GVPhrases_S31_B4_merged_templates.mat';
+load([rootDir audFile], 'ecog');
+audioData = ecog.stimAudioData;
+
+%% Iterate through stimuli
+% This pulls the first shown sentence as the template.  It's pretty
+% arbitrary.
+% Loop through sentences
+sentTemplates = {};
+for i = 1:length(audioData)
+    stim = audioData{i}(:, 2:end);
+    blockIdxs = audioData{i}(:, 1);
+    numFreqs = size(stim, 2);
+    % Loop through frequency bands
+    freqTemplates= zeros(size(stim(blockIdxs==1), 1), numFreqs);
+    for j = 1:numFreqs
+        template = stim(blockIdxs==1, j);
+        
+        
+        %%%%%%%%% CODE FOR AVERAGING SENTENCES FOR TEMPLATES %%%%%%%%%%%%%%
+        %%%%%%%%% Maybe accomplish this by matching/aligning peaks? %%%%%%%
+        % Loop through blocks within a frequency band and compare to temp.
+        for k = 1:max(blockIdxs)
+            compare = stim(blockIdxs==k, j);
+            
+        end
+        %%%%%%%%% CODE FOR AVERAGING SENTENCES FOR TEMPLATES %%%%%%%%%%%%%%
+        
+        
+        % Assign the template frequency to a spot in the cell
+        freqTemplates(:, j) = template;
+    end
+    
+    % Now assign the cell with each frequency template to the corresponding
+    % sentence location in our larger sentence cell
+    sentTemplates{i} = freqTemplates;
+end
+
+ecog.sentTemplates = sentTemplates;
+
+%% Now Save
+save([rootDir saveFile], 'ecog');
+
+
+

@@ -1,0 +1,59 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% This script takes a cell with a bunch of STRF models in it,
+% each representing the model for a frequency band.  It then
+% takes a cell of N stimuli, and within each cell is a matrix
+% that is T timepoints x nElectrodes, with the first column being 
+% an index of trials when the stimulus was presented.
+%%%%%%%%%%%%%%%%%%%%%%%%%
+clear all; 
+blockNum = 5; blockStr = num2str(blockNum);
+
+%% Load data
+rootDir = '/home/knight/holdgraf/data/gerwinSchalk/subjData/subject_31/';
+stimBrainDatPath = ['a2GVPhrases_S31_B' blockStr '_merged.mat'];
+strfPath = 'regressions/GV31_B2B3_rev.mat';
+saveName = ['a2GVPhrases_S31_B' blockStr '_merged_pred.mat'];
+
+load([rootDir stimBrainDatPath], 'ecog');
+load([rootDir strfPath], 'predictions');
+
+% Declare parameters
+numElecs = 98; % specify specific number of electrodes to use
+numFreqs = length(predictions.strfArray);
+
+% Set up structure in which we'll have predictions.
+predStruct = {};
+for i = 1:length(ecog.stimBrainData)
+    insertMat = ecog.stimBrainData{i}(:, 1);
+    predStruct{i} = insertMat;
+end
+
+%% Now do STRF forward predicting
+global globDat;
+
+% Iterate through all the brain-stimuli chunks that we have
+strfArray = predictions.strfArray;
+for i = 1:length(ecog.stimBrainData)
+    brainData = ecog.stimBrainData{i}(:, 2:end);
+    strfData(brainData, brainData);
+    
+    % Run the prediction for each model that is in strfArray
+    predictMat = zeros(length(brainData), length(strfArray));
+    for j = 1:length(strfArray)
+        strf = strfArray{j};
+        [strf preds] = strfFwd(strf, [1:length(brainData)]);
+        predictMat(:, j) = preds;
+    end
+    
+    predStruct{i} = [predStruct{i} predictMat];
+end
+
+% Save the predictions, separated by stim, then by block as well as the
+% STRF models array.
+ecog.predictionsByStim = predStruct;
+ecog.strfArray = strfArray;
+
+save([rootDir saveName], 'ecog');
+
+
+

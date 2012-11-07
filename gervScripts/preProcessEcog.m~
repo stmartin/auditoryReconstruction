@@ -1,0 +1,10 @@
+% This is a control file for preprocessing and running STRF fitting.  It
+% is currently under construction, and should ultimately be the main
+% control point for ECoG preprocessing and STRF fitting.  
+subjPath = ['/home/knight/holdgraf/data/gerwinSchalk/subjData/subject_33/'];
+
+ecog = makeEcogStruct_0(subjPath);  % finished
+ecog = preprocessEcogStruct_1(ecog);
+ecog = processEcogStruct_2(ecog);
+audio = createSpeechRepresentations_5; 
+ecog = 

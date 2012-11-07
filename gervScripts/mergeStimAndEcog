@@ -1,0 +1,11 @@
+%%%% This script pulls behavioral data from raw ECoG files and incorporates
+%%%% them into pre-existing ECoG analysis files.
+addpath('/home/knight/bpasley/matlab');
+
+rawDir = '/home/knight/holdgraf/data/gerwinSchalk/rawData/subject_31/';
+processedDir = '/home/knight/holdgraf/data/gerwinSchalk/subjData/subject_31/';
+
+[gdat states parameters] = load_bcidat([rawDir 'ECOGS001R05.dat']);
+
+% 21-30 is when people should be thinking/speaking the sentence
+stims = states.StimulusCode;

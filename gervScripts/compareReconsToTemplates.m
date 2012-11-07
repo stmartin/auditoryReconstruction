@@ -1,0 +1,79 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This script takes pointers to a file with auditory predictions, as well
+% as a file with an audio template for one of ten stimuli.  It then runs
+% dynamic time warping between the templates and predictions, and attempts
+% to classify each
+%
+% The predictions file that is loaded should have a structure called 'ecog'
+% that contains a file called 'predictionsByStim'.  This is an array with
+% predictions for each stimulus used.  Inside each item in the array is a
+% matrix that is N timepoints x P+1 frequencies predicted.  The first
+% column of this matrix is a vector of indices, indicating which block the
+% sentence was presented
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Load Data
+clear all;
+rootDir = '/home/knight/holdgraf/data/gerwinSchalk/subjData/subject_31/';
+
+% Load predictions
+predFile = '/a2GVPhrases_S31_B5_merged_pred.mat';
+predEcog = load([rootDir predFile]);
+predEcog = predEcog.ecog;
+predictions = predEcog.predictionsByStim;
+
+% Load the audio templates
+audFile = 'a2GVPhrases_S31_B4_merged_templates.mat';
+audEcog = load([rootDir audFile], 'ecog');
+audEcog = audEcog.ecog;
+templates = audEcog.sentTemplates;
+
+% Initialize classification variables
+numStims = length(templates);
+numBlocks = max(predictions{1}(:, 1));
+numFreqs = size(templates{1}, 2);
+
+classMat = zeros(numBlocks, numStims);
+
+%% Now do the comparison
+% Iterate through all sentences
+classMat = zeros(numBlocks, numStims);
+for i = 1:numStims
+    predSent = predictions{i};
+    
+    % Iterate through all blocks for that stimulus
+    for j = 1:numBlocks
+        predBlock = predSent(predSent(:, 1)==j, :);
+        
+        % Iterate through all frequency bands
+        compMat = zeros(numStims, numFreqs);
+        for k = 1:numFreqs
+            predFreq = predBlock(:, k+1); % Add 1 because first column is indices
+            predFreq(isnan(predFreq)) = [];  % remove NaNs
+            predFreq = (predFreq - mean(predFreq)) / std(predFreq); % Z-Score the prediction first
+            % Compare this frequency band prediction to all templates at
+            % that frequency
+            for l = 1:numStims
+                audTemp = templates{l}(:, k);
+                audTemp = ((audTemp - mean(audTemp)) / std(audTemp));  % Z-score the templates as well
+                [dist, D, normFact, w, rw, tw] = dtw(predFreq, audTemp, 0); % Need to normalize the distance?
+                compMat(l, k) = dist;
+            end
+            
+            stimDists = sum(compMat, 2);
+            classify = find(stimDists==min(stimDists));
+            
+            % If the minimum distance is a NaN, then don't classify
+            % anything
+            if isnan(min(stimDists))
+                classify = 0;
+            end
+                
+        end
+        classMat(j, i) = classify;
+    end
+end
+
+%% Visualize the templates we're comparing
+freq = 5;
+vizPredictions(freq, 1, 1, 10, templates, predictions, 1);
